@@ -337,7 +337,7 @@
             }
 
             try {
-                const response = await fetchApi('/api/crawlerHome/crawl', {
+                const response = await fetchApi('/api/crawler/home', {
                     method: 'POST',
                     body: JSON.stringify({ url: profileUrl })
                 });
@@ -345,12 +345,12 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    mediaItems = data.mediaUrls;
-                    showMediaPreview(data.mediaUrls);
+                    mediaItems = data;
+                    showMediaPreview(data);
                     showSuccess(`获取成功！
-                        用户名：${data.username}
-                        笔记数量：${data.notesCount}
-                        找到 ${data.mediaUrls.images.length} 张图片和 ${data.mediaUrls.videos.length} 个视频`);
+                        标题：${data.title}
+                        图片数量：${data.images.length}
+                        视频数量：${data.videos.length}`);
                 } else {
                     showError(data.message || '获取失败');
                 }

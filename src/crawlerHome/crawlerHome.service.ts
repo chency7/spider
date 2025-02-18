@@ -16,7 +16,7 @@ export class CrawlerHomeService {
 
     async crawlUserHome(homeUrl: string) {
         const browser = await puppeteer.launch({
-            headless: true,
+            headless: false,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -33,7 +33,7 @@ export class CrawlerHomeService {
             const userAgents = [
                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
                 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Mobile/15E148 Safari/604.1',
+                //'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Mobile/15E148 Safari/604.1',
             ];
             await page.setUserAgent(userAgents[Math.floor(Math.random() * userAgents.length)]);
             await page.setViewport({ width: 1920, height: 1080 });
@@ -43,6 +43,7 @@ export class CrawlerHomeService {
                 waitUntil: 'networkidle0',
                 timeout: 30000
             });
+
 
             // 获取用户名称作为文件夹名
             const username = await page.evaluate(() => {
@@ -56,84 +57,37 @@ export class CrawlerHomeService {
 
             this.logger.log(`开始获取用户 ${username} 的内容`);
 
+
             // 获取所有笔记项目
             const items = await page.evaluate(() => {
-                return Array.from(document.querySelectorAll('.note-item')).map(item => ({
-                    href: item.querySelector('a').href,
-                }));
+                const images = []
+                const feedsContainer = document.querySelector('.feeds-tab-container');
+                if (!feedsContainer) {
+                    return [];
+                }
+
+                const items = feedsContainer.querySelectorAll('.note-item')
+                
+                items.forEach(item => {
+                    const imgSrc = item.querySelector('img').getAttribute('data-src') || 
+                                 item.querySelector('img').getAttribute('src');
+                    if (imgSrc) {
+                        images.push(imgSrc);
+                    }
+                });
+
+                return images;
             });
+
+            console.log(items);
 
             this.logger.log(`找到 ${items.length} 个笔记`);
 
-            // 用于存储所有笔记的媒体URL
-            const allMediaUrls = {
-                images: [],
-                videos: []
-            };
-
-            // 遍历每个笔记
-            for (let [index, item] of items.entries()) {
-                try {
-                    const notePage = await browser.newPage();
-                    await notePage.setUserAgent(userAgents[Math.floor(Math.random() * userAgents.length)]);
-                    
-                    await notePage.goto(item.href, {
-                        waitUntil: 'networkidle0',
-                        timeout: 30000
-                    });
-
-                    // 等待内容加载
-                    await notePage.waitForSelector('.video-player-media, .media-container');
-
-                    // 获取媒体URL
-                    const mediaUrls = await notePage.evaluate(() => {
-                        const containers = document.querySelectorAll('.video-player-media, .media-container');
-                        const urls = {
-                            images: new Set(),
-                            videos: new Set()
-                        };
-
-                        containers.forEach(container => {
-                            container.querySelectorAll('img').forEach(img => {
-                                const src = img.getAttribute('data-src') || img.getAttribute('src');
-                                if (src && !src.includes('data:image')) {
-                                    urls.images.add(src);
-                                }
-                            });
-
-                            container.querySelectorAll('video').forEach(video => {
-                                const src = video.getAttribute('src') || video.getAttribute('data-src');
-                                if (src) {
-                                    urls.videos.add(src);
-                                }
-                            });
-                        });
-
-                        return {
-                            images: Array.from(urls.images),
-                            videos: Array.from(urls.videos)
-                        };
-                    });
-
-                    // 将当前笔记的媒体URL添加到总集合中
-                    allMediaUrls.images.push(...mediaUrls.images);
-                    allMediaUrls.videos.push(...mediaUrls.videos);
-
-                    await notePage.close();
-                    
-                    // 随机延迟，避免请求过快
-                    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-
-                } catch (error) {
-                    this.logger.error(`处理笔记失败: ${error.message}`);
-                }
-            }
-
-            // 返回所有收集到的数据
+            // 返回符合 Assets 接口的数据格式
             return {
-                username: sanitizedUsername,
-                notesCount: items.length,
-                mediaUrls: allMediaUrls
+                title: sanitizedUsername,
+                images: items,
+                videos: []
             };
 
         } catch (error) {

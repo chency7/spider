@@ -1,11 +1,11 @@
 import { Controller, Post, Body, HttpException, HttpStatus } from '@nestjs/common';
 import { CrawlerHomeService } from './crawlerHome.service';
 
-@Controller('api/crawlerHome')
+@Controller('api')
 export class CrawlerHomeController {
     constructor(private readonly crawlerHomeService: CrawlerHomeService) { }
 
-    @Post('crawl')
+    @Post('crawler/home')
     async crawlUserHome(@Body('url') url: string) {
         if (!url) {
             throw new HttpException('URL不能为空', HttpStatus.BAD_REQUEST);
