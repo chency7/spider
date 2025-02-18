@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小红书内容下载器</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.6/viewer.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.6/viewer.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #ff2442;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .success {
+            background-color: #e8f5e9;
+            border: 1px solid #c8e6c9;
+            color: #2e7d32;
+        }
+
+        .error {
+            background-color: #ffebee;
+            border: 1px solid #ffcdd2;
+            color: #c62828;
+        }
+
+        .tabs {
+            margin-bottom: 30px;
+            display: flex;
+            gap: 20px;
+        }
+
+        .tab-button {
+            background: none;
+            border: none;
+            padding: 8px 0;
+            cursor: pointer;
+            color: #999;
+            font-size: 16px;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        .tab-button:hover {
+            color: #4a90e2;
+            /* 浅蓝色 */
+        }
+
+        .tab-button:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background-color: #ff2442;
+            transition: width 0.3s;
+        }
+
+        .tab-button.active {
+            color: #333;
+        }
+
+        .tab-button.active:hover {
+            color: #333;
+            /* 活动状态下hover不改变颜色 */
+        }
+
+        .tab-button.active:after {
+            width: 100%;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .note {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .media-preview {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .media-item {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .media-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            cursor: zoom-in;
+        }
+
+        .media-item .checkbox {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .download-controls {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .download-controls button {
+            flex: 1;
+        }
+
+        /* 添加视频项的样式 */
+        .video-item {
+            position: relative;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .video-info {
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* 添加图片预览模态框样式 */
+        .image-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            cursor: zoom-out;
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 90%;
+            max-height: 90vh;
+        }
+
+        .modal-content img {
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+        }
+
+        /* 添加图片容器样式 */
+        .images-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>小红书内容下载器</h1>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('single')">单条笔记下载</button>
+            <button class="tab-button" onclick="switchTab('profile')">用户主页下载</button>
+        </div>
+
+        <div id="single-content" class="tab-content active">
+            <div class="form-group">
+                <label for="shareUrl">笔记链接：</label>
+                <input type="text" id="shareUrl" placeholder="请输入小红书笔记分享链接">
+            </div>
+            <button onclick="startSingleDownload()">开始爬取</button>
+            <p class="note">支持单条笔记的图片和视频下载</p>
+        </div>
+
+        <div id="profile-content" class="tab-content">
+            <div class="form-group">
+                <label for="profileUrl">用户主页链接：</label>
+                <input type="text" id="profileUrl" placeholder="请输入小红书用户主页链接">
+            </div>
+            <button onclick="startProfileDownload()">开始爬取</button>
+            <p class="note">支持下载用户主页下的所有笔记内容</p>
+        </div>
+
+        <div id="media-preview" class="media-preview" style="display: none;"></div>
+        <div id="download-controls" class="download-controls" style="display: none;">
+            <button onclick="selectAll()">全选</button>
+            <button onclick="downloadSelected()">下载选中</button>
+        </div>
+
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        // 添加基础URL配置
+        const BASE_URL = 'http://127.0.0.1:3001';
+
+        // 封装fetch方法
+        async function fetchApi(endpoint, options = {}) {
+            const url = `${BASE_URL}${endpoint}`;
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers,
+                },
+            });
+            return response;
+        }
+
+        function switchTab(tabName) {
+            // 更新按钮状态
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            document.querySelector(`button[onclick="switchTab('${tabName}')"]`).classList.add('active');
+
+            // 更新内容显示
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`${tabName}-content`).classList.add('active');
+
+            // 清除结果显示
+            document.getElementById('result').style.display = 'none';
+        }
+
+        let mediaItems = [];
+
+        async function startSingleDownload() {
+            const shareUrl = document.getElementById('shareUrl').value;
+
+            if (!shareUrl) {
+                showError('请输入笔记链接');
+                return;
+            }
+
+            try {
+                const response = await fetchApi(`/api/crawler/getAssets?url=${encodeURIComponent(shareUrl)}`, {
+                    method: 'GET'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    mediaItems = data;
+                    showMediaPreview(data);
+                    showSuccess(`获取成功！
+                        标题：${data.title}
+                        图片数量：${data.images.length}
+                        视频数量：${data.videos.length}`);
+                } else {
+                    showError(data.message || '获取失败');
+                }
+            } catch (error) {
+                showError('请求失败：' + error.message);
+            }
+        }
+
+        async function startProfileDownload() {
+            const profileUrl = document.getElementById('profileUrl').value;
+
+            if (!profileUrl) {
+                showError('请输入用户主页链接');
+                return;
+            }
+
+            try {
+                const response = await fetchApi('/api/crawlerHome/crawl', {
+                    method: 'POST',
+                    body: JSON.stringify({ url: profileUrl })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    mediaItems = data.mediaUrls;
+                    showMediaPreview(data.mediaUrls);
+                    showSuccess(`获取成功！
+                        用户名：${data.username}
+                        笔记数量：${data.notesCount}
+                        找到 ${data.mediaUrls.images.length} 张图片和 ${data.mediaUrls.videos.length} 个视频`);
+                } else {
+                    showError(data.message || '获取失败');
+                }
+            } catch (error) {
+                showError('请求失败：' + error.message);
+            }
+        }
+
+        function showMediaPreview(mediaUrls) {
+            const previewDiv = document.getElementById('media-preview');
+            const controlsDiv = document.getElementById('download-controls');
+
+            previewDiv.innerHTML = '';
+
+            // 显示图片
+            if (mediaUrls.images && mediaUrls.images.length > 0) {
+                const imagesTitle = document.createElement('div');
+                imagesTitle.textContent = '图片';
+                imagesTitle.style.display = 'block';
+                previewDiv.appendChild(imagesTitle);
+
+                // 创建图片容器
+                const imagesContainer = document.createElement('div');
+                imagesContainer.className = 'images-container';
+
+                mediaUrls.images.forEach((url, index) => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'media-item';
+
+                    const img = document.createElement('img');
+                    img.src = `${BASE_URL}/api/proxy?url=${encodeURIComponent(url)}`;
+                    img.className = 'preview-image';
+                    img.alt = `图片 ${index + 1}`;
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'checkbox';
+                    checkbox.dataset.index = index;
+                    checkbox.onclick = (e) => e.stopPropagation();
+
+                    itemDiv.appendChild(img);
+                    itemDiv.appendChild(checkbox);
+                    imagesContainer.appendChild(itemDiv);
+                });
+
+                previewDiv.appendChild(imagesContainer);
+
+                // 初始化 Viewer
+                const viewer = new Viewer(imagesContainer, {
+                    navbar: false, // 隐藏底部缩略图导航
+                    toolbar: {
+                        zoomIn: true,
+                        zoomOut: true,
+                        oneToOne: true,
+                        reset: true,
+                        prev: true,
+                        play: false,
+                        next: true,
+                        rotateLeft: true,
+                        rotateRight: true,
+                        flipHorizontal: true,
+                        flipVertical: true,
+                    },
+                    title: false, // 隐藏标题
+                    tooltip: true, // 显示工具提示
+                    movable: true, // 图片可移动
+                    zoomable: true, // 图片可缩放
+                    rotatable: true, // 图片可旋转
+                    scalable: true, // 图片可翻转
+                    keyboard: true, // 启用键盘支持
+                    url: 'src', // 大图地址属性
+                    hidden: function () {
+                        // 关闭预览时的回调
+                    },
+                });
+            }
+
+            // 显示视频
+            if (mediaUrls.videos && mediaUrls.videos.length > 0) {
+                const videosTitle = document.createElement('h3');
+                videosTitle.textContent = '视频';
+                previewDiv.appendChild(videosTitle);
+
+                mediaUrls.videos.forEach((url, index) => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'video-item';
+
+                    const videoInfo = document.createElement('div');
+                    videoInfo.textContent = `视频 ${index + 1}`;
+                    videoInfo.className = 'video-info';
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'checkbox';
+                    checkbox.dataset.index = index;
+
+                    itemDiv.appendChild(videoInfo);
+                    itemDiv.appendChild(checkbox);
+                    previewDiv.appendChild(itemDiv);
+                });
+            }
+
+            previewDiv.style.display = 'block';
+            controlsDiv.style.display = 'flex';
+        }
+
+        function selectAll() {
+            const checkboxes = document.querySelectorAll('.media-item .checkbox');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !allChecked);
+        }
+
+        async function downloadSelected() {
+            const checkboxes = document.querySelectorAll('.media-item .checkbox:checked');
+            if (checkboxes.length === 0) {
+                showError('请选择要下载的图片');
+                return;
+            }
+
+            try {
+                // 如果只选择了一张图片，直接下载
+                if (checkboxes.length === 1) {
+                    const index = checkboxes[0].dataset.index;
+                    const imageUrl = mediaItems.images[index];
+                    const proxyUrl = `${BASE_URL}/api/proxy?url=${encodeURIComponent(imageUrl)}`;
+
+                    const response = await fetch(proxyUrl);
+                    const blob = await response.blob();
+                    saveAs(blob, `image_${index + 1}.jpg`);
+
+                    showSuccess('下载完成！');
+                    return;
+                }
+
+                // 多张图片，创建zip
+                const zip = new JSZip();
+                const folder = zip.folder(mediaItems.title || "images");
+
+                // 显示进度信息
+                showSuccess('开始下载并压缩图片...');
+
+                // 并行下载所有选中的图片
+                const downloadPromises = Array.from(checkboxes).map(async (checkbox) => {
+                    const index = checkbox.dataset.index;
+                    const imageUrl = mediaItems.images[index];
+                    const proxyUrl = `${BASE_URL}/api/proxy?url=${encodeURIComponent(imageUrl)}`;
+
+                    try {
+                        const response = await fetch(proxyUrl);
+                        const blob = await response.blob();
+                        folder.file(`image_${index + 1}.jpg`, blob);
+                        return true;
+                    } catch (error) {
+                        console.error(`下载图片 ${index + 1} 失败:`, error);
+                        return false;
+                    }
+                });
+
+                // 等待所有下载完成
+                const results = await Promise.all(downloadPromises);
+                const successCount = results.filter(Boolean).length;
+
+                if (successCount > 0) {
+                    // 生成zip文件
+                    showSuccess('正在生成压缩包...');
+                    const content = await zip.generateAsync({
+                        type: "blob",
+                        compression: "DEFLATE",
+                        compressionOptions: {
+                            level: 6
+                        }
+                    });
+
+                    // 下载zip文件
+                    const zipFileName = `${mediaItems.title || 'images'}_${new Date().getTime()}.zip`;
+                    saveAs(content, zipFileName);
+
+                    showSuccess(`下载完成！成功下载 ${successCount} 张图片`);
+                } else {
+                    showError('没有图片下载成功');
+                }
+            } catch (error) {
+                showError('下载失败：' + error.message);
+            }
+        }
+
+        // 视频下载功能也类似更新
+        async function downloadSelectedVideos() {
+            const videoCheckboxes = document.querySelectorAll('.video-item .checkbox:checked');
+            if (videoCheckboxes.length === 0) {
+                showError('请选择要下载的视频');
+                return;
+            }
+
+            try {
+                // 如果只选择了一个视频，直接下载
+                if (videoCheckboxes.length === 1) {
+                    const index = videoCheckboxes[0].dataset.index;
+                    const videoUrl = mediaItems.videos[index];
+                    const proxyUrl = `${BASE_URL}/api/proxy?url=${encodeURIComponent(videoUrl)}`;
+
+                    const response = await fetch(proxyUrl);
+                    const blob = await response.blob();
+                    saveAs(blob, `video_${index + 1}.mp4`);
+
+                    showSuccess('下载完成！');
+                    return;
+                }
+
+                // 多个视频，创建zip
+                const zip = new JSZip();
+                const folder = zip.folder(mediaItems.title || "videos");
+
+                showSuccess('开始下载并压缩视频...');
+
+                const downloadPromises = Array.from(videoCheckboxes).map(async (checkbox) => {
+                    const index = checkbox.dataset.index;
+                    const videoUrl = mediaItems.videos[index];
+                    const proxyUrl = `${BASE_URL}/api/proxy?url=${encodeURIComponent(videoUrl)}`;
+
+                    try {
+                        const response = await fetch(proxyUrl);
+                        const blob = await response.blob();
+                        folder.file(`video_${index + 1}.mp4`, blob);
+                        return true;
+                    } catch (error) {
+                        console.error(`下载视频 ${index + 1} 失败:`, error);
+                        return false;
+                    }
+                });
+
+                const results = await Promise.all(downloadPromises);
+                const successCount = results.filter(Boolean).length;
+
+                if (successCount > 0) {
+                    showSuccess('正在生成压缩包...');
+                    const content = await zip.generateAsync({
+                        type: "blob",
+                        compression: "DEFLATE",
+                        compressionOptions: {
+                            level: 6
+                        }
+                    });
+
+                    const zipFileName = `${mediaItems.title || 'videos'}_${new Date().getTime()}.zip`;
+                    saveAs(content, zipFileName);
+
+                    showSuccess(`下载完成！成功下载 ${successCount} 个视频`);
+                } else {
+                    showError('没有视频下载成功');
+                }
+            } catch (error) {
+                showError('下载失败：' + error.message);
+            }
+        }
+
+        function showSuccess(message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result success';
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = message;
+        }
+
+        function showError(message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result error';
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = message;
+        }
+    </script>
+</body>
+
+</html>
