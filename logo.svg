@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- 背景圆 -->
+    <circle cx="100" cy="100" r="90" fill="#2E3440" />
+    
+    <!-- 蜘蛛网 -->
+    <path d="M100 30 L100 170" stroke="#81A1C1" stroke-width="2" opacity="0.6" />
+    <path d="M30 100 L170 100" stroke="#81A1C1" stroke-width="2" opacity="0.6" />
+    <path d="M48 48 L152 152" stroke="#81A1C1" stroke-width="2" opacity="0.6" />
+    <path d="M152 48 L48 152" stroke="#81A1C1" stroke-width="2" opacity="0.6" />
+    
+    <!-- 外圈装饰 -->
+    <circle cx="100" cy="100" r="85" stroke="#88C0D0" stroke-width="2" stroke-dasharray="10 5" />
+    
+    <!-- 中心图标 -->
+    <g transform="translate(70,70) scale(0.6)">
+        <!-- 社交媒体图标 -->
+        <path d="M50 20 C90 20, 90 80, 50 80" stroke="#EBCB8B" stroke-width="8" fill="none" />
+        <path d="M50 20 C10 20, 10 80, 50 80" stroke="#A3BE8C" stroke-width="8" fill="none" />
+        
+        <!-- 数据流线条 -->
+        <path d="M30 50 L70 50" stroke="#D08770" stroke-width="4" >
+            <animate attributeName="stroke-dasharray" values="0,20;20,0" dur="1.5s" repeatCount="indefinite" />
+        </path>
+    </g>
+    
+    <!-- 文字 -->
+    <text x="100" y="140" font-family="Arial" font-size="14" fill="#ECEFF4" text-anchor="middle">SUPER TOOLS</text>
+</svg> 
